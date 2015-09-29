@@ -43,7 +43,7 @@ class RemoteForm(object):
         self.excluded_fields |= (self.included_fields - self.all_fields)
 
         if not self.ordered_fields:
-            if self.form.fields.keyOrder:
+            if hasattr(self.form.fields, 'keyOrder'):
                 self.ordered_fields = self.form.fields.keyOrder
             else:
                 self.ordered_fields = self.form.fields.keys()
@@ -108,13 +108,37 @@ class RemoteForm(object):
         form_dict['fields'] = SortedDict()
         form_dict['errors'] = self.form.errors
         form_dict['fieldsets'] = getattr(self.form, 'fieldsets', [])
+        form_dict['inlines'] = SortedDict()
 
         # If there are no fieldsets, specify order
         form_dict['ordered_fields'] = self.fields
 
         initial_data = {}
 
-        for name, field in [(x, self.form.fields[x]) for x in self.fields]:
+        for fs_name, fs in self.form.inlines.items():
+            form_dict['inlines'][fs_name] = []
+            for i, f in enumerate(fs.forms):
+                form_dict['inlines'][fs_name].append({})
+                for name, value in [(x, f[x].value()) for x in f.fields]:
+                    initial_field_data = f.initial.get(name)
+                    form_dict['inlines'][fs_name][i][name] = {
+                        'value': value
+                    }
+                if hasattr(f, 'nested'):
+                    form_dict['inlines'][fs_name][i]['nested'] = {}
+                    for nfs_name, nfs in f.nested.items():
+                        form_dict['inlines'][fs_name][i]['nested'][nfs_name] = []
+                        for j, n in enumerate(nfs.forms):
+                            form_dict['inlines'][fs_name][i]['nested'][nfs_name].append({})
+                            for n_name, n_value in [(x, n[x].value()) for x in n.fields]:
+                                #initial_field_data = f.initial.get(name)
+                                form_dict['inlines'][fs_name][i]['nested'][nfs_name][j][n_name] = {
+                                    'value': n_value
+                                }
+
+
+        for name, field in []:
+        #for name, field in [(x, self.form.fields[x]) for x in self.fields]:
             # Retrieve the initial data from the form itself if it exists so
             # that we properly handle which initial data should be returned in
             # the dictionary.
@@ -152,4 +176,9 @@ class RemoteForm(object):
         else:
             form_dict['data'] = initial_data
 
-        return resolve_promise(form_dict)
+        #resolved = resolve_promise(form_dict)
+        import json
+        print json.dumps(form_dict, indent=4)
+        #print json.dumps(resolved, indent=4)
+        #return resolved
+        return form_dict

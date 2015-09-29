@@ -11,10 +11,10 @@ class RemoteWidget(object):
 
     def as_dict(self):
         widget_dict = SortedDict()
-        widget_dict['title'] = self.widget.__class__.__name__
-        widget_dict['is_hidden'] = self.widget.is_hidden
-        widget_dict['needs_multipart_form'] = self.widget.needs_multipart_form
-        widget_dict['is_localized'] = self.widget.is_localized
+        #widget_dict['title'] = self.widget.__class__.__name__
+        #widget_dict['is_hidden'] = self.widget.is_hidden
+        #widget_dict['needs_multipart_form'] = self.widget.needs_multipart_form
+        #widget_dict['is_localized'] = self.widget.is_localized
         widget_dict['is_required'] = self.widget.is_required
         widget_dict['attrs'] = self.widget.attrs
 

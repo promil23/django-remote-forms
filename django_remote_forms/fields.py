@@ -175,13 +175,17 @@ class RemoteChoiceField(RemoteField):
     def as_dict(self):
         field_dict = super(RemoteChoiceField, self).as_dict()
 
+        #temporary switch off
+        '''
         field_dict['choices'] = []
         for key, value in self.field.choices:
             field_dict['choices'].append({
                 'value': key,
                 'display': value
             })
-
+        '''
+        #field_dict['choices'] = []
+        field_dict['widget']['choices'] = []
         return field_dict
 
 
