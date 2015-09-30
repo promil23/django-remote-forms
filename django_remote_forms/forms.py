@@ -2,6 +2,7 @@ from django.utils.datastructures import SortedDict
 
 from django_remote_forms import fields, logger
 from django_remote_forms.utils import resolve_promise
+from django.utils.safestring import mark_safe
 
 
 class RemoteForm(object):
@@ -113,30 +114,55 @@ class RemoteForm(object):
         # If there are no fieldsets, specify order
         form_dict['ordered_fields'] = self.fields
 
+        self.collect_fields(self.form, form_dict)
+
+        import json
+        print json.dumps(form_dict, indent=4)
+        return mark_safe(json.dumps(form_dict, indent=4))
+        #return resolved
+        #return mark_safe(form_dict)
+
+    def collect_fields(self, form, form_dict):
         initial_data = {}
 
-        for fs_name, fs in self.form.inlines.items():
-            form_dict['inlines'][fs_name] = []
-            for i, f in enumerate(fs.forms):
-                form_dict['inlines'][fs_name].append({})
-                for name, value in [(x, f[x].value()) for x in f.fields]:
-                    initial_field_data = f.initial.get(name)
-                    form_dict['inlines'][fs_name][i][name] = {
-                        'value': value
-                    }
-                if hasattr(f, 'nested'):
-                    form_dict['inlines'][fs_name][i]['nested'] = {}
-                    for nfs_name, nfs in f.nested.items():
-                        form_dict['inlines'][fs_name][i]['nested'][nfs_name] = []
-                        for j, n in enumerate(nfs.forms):
-                            form_dict['inlines'][fs_name][i]['nested'][nfs_name].append({})
-                            for n_name, n_value in [(x, n[x].value()) for x in n.fields]:
-                                #initial_field_data = f.initial.get(name)
-                                form_dict['inlines'][fs_name][i]['nested'][nfs_name][j][n_name] = {
-                                    'value': n_value
-                                }
+        inlines = getattr(form, 'inlines', None)
+        nested = getattr(form, 'nested', None)
+
+        if inlines or nested:
+            inl_nes = 'inlines' if inlines else 'nested'
+            form_dict[inl_nes] = {}
+            for fs_name, fs in getattr(form, inl_nes).items():
+                for i, f in enumerate(fs.forms):
+                    form_dict[inl_nes].setdefault(fs_name, []).append({})
+                    self.collect_fields(f, form_dict[inl_nes][fs_name][i])
 
 
+        for name, value in [(x, form[x].value()) for x in form.fields]:
+
+            form_initial_field_data = form.initial.get(name)
+            field = form.fields[name]
+            remote_field_class_name = 'Remote%s' % field.__class__.__name__
+
+            field_dict = {}
+            try:
+                remote_field_class = getattr(fields, remote_field_class_name)
+                remote_field = remote_field_class(field, form_initial_field_data, field_name=name)
+                if hasattr(remote_field, 'get_dict'):
+                    #field_dict = remote_field.as_dict()
+                    field_dict = remote_field.get_dict()
+
+                form_dict[name] = {
+                    'value': value
+                }
+                form_dict[name].update(field_dict)
+            except Exception, e:
+                #logger.warning('Error serializing field %s: %s', remote_field_class_name, str(e))
+                print 'Error serializing field {0}: {1}'.format(remote_field_class_name, str(e))
+
+
+
+
+        '''
         for name, field in []:
         #for name, field in [(x, self.form.fields[x]) for x in self.fields]:
             # Retrieve the initial data from the form itself if it exists so
@@ -177,8 +203,4 @@ class RemoteForm(object):
             form_dict['data'] = initial_data
 
         #resolved = resolve_promise(form_dict)
-        import json
-        print json.dumps(form_dict, indent=4)
-        #print json.dumps(resolved, indent=4)
-        #return resolved
-        return form_dict
+        '''

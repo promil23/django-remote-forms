@@ -171,6 +171,20 @@ class RemoteNullBooleanField(RemoteBooleanField):
         return super(RemoteNullBooleanField, self).as_dict()
 
 
+class RemoteBCTChoiceFieldWithTitles(RemoteField):
+    def as_dict(self):
+        return super(RemoteBCTChoiceFieldWithTitles, self).as_dict()
+
+    def get_dict(self):
+        #field_dict = {'widget': {'attrs' : self.field.widget.attrs}}
+        #field_dict = {'results': self.field.widget.attrs['results']}
+        field_dict = {'results': self.field.results}
+        return field_dict
+
+class RemoteInlineForeignKeyField(RemoteField):
+    def as_dict(self):
+        return super(RemoteInlineForeignKeyField, self).as_dict()
+
 class RemoteChoiceField(RemoteField):
     def as_dict(self):
         field_dict = super(RemoteChoiceField, self).as_dict()
@@ -188,6 +202,30 @@ class RemoteChoiceField(RemoteField):
         field_dict['widget']['choices'] = []
         return field_dict
 
+    def get_dict(self):
+        field_dict = {'choices': []}
+        for key, value in self.field.choices:
+            field_dict['choices'].append({
+                'value': key,
+            })
+        #'display': value
+        #return field_dict
+        return {}
+
+
+class RemoteToolChoiceField(RemoteField):
+    def get_dict(self):
+        field_dict = {'choices': self.field.choices,
+                      'ng-options': self.field.widget.attrs['ng-options']}
+        '''
+        for key, value in self.field.choices:
+            field_dict['choices'].append({
+                'value': key,
+            })
+        '''
+        #'display': value
+        #return field_dict
+        return field_dict
 
 class RemoteModelChoiceField(RemoteChoiceField):
     def as_dict(self):
