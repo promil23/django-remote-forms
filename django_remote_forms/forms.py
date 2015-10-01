@@ -3,7 +3,7 @@ from django.utils.datastructures import SortedDict
 from django_remote_forms import fields, logger
 from django_remote_forms.utils import resolve_promise
 from django.utils.safestring import mark_safe
-
+import portal.utils as bct_utils
 
 class RemoteForm(object):
     def __init__(self, form, *args, **kwargs):
@@ -121,9 +121,15 @@ class RemoteForm(object):
         #import json
         #print json.dumps(form_dict, indent=4)
         #return mark_safe(json.dumps(form_dict, indent=4))
-        return form_dict
-        #return resolved
-        #return mark_safe(form_dict)
+        #empty form doesn't have formsets_to_refresh
+        if hasattr(self.form, 'formsets_to_refresh'):
+            mgmt = self.form.formsets_to_refresh()
+            bct_utils.merge_dicts(form_dict['inlines'], mgmt)
+            return form_dict
+        else:
+            return form_dict
+
+        #return form_dict
 
     def collect_fields(self, form, form_dict):
         initial_data = {}
@@ -170,48 +176,3 @@ class RemoteForm(object):
                 #logger.warning('Error serializing field %s: %s', remote_field_class_name, str(e))
                 print 'Error serializing field {0}: {1}'.format(remote_field_class_name, str(e))
 
-
-
-
-        '''
-        for name, field in []:
-        #for name, field in [(x, self.form.fields[x]) for x in self.fields]:
-            # Retrieve the initial data from the form itself if it exists so
-            # that we properly handle which initial data should be returned in
-            # the dictionary.
-
-            # Please refer to the Django Form API documentation for details on
-            # why this is necessary:
-            # https://docs.djangoproject.com/en/dev/ref/forms/api/#dynamic-initial-values
-            form_initial_field_data = self.form.initial.get(name)
-
-            # Instantiate the Remote Forms equivalent of the field if possible
-            # in order to retrieve the field contents as a dictionary.
-            remote_field_class_name = 'Remote%s' % field.__class__.__name__
-            try:
-                remote_field_class = getattr(fields, remote_field_class_name)
-                remote_field = remote_field_class(field, form_initial_field_data, field_name=name)
-            except Exception, e:
-                logger.warning('Error serializing field %s: %s', remote_field_class_name, str(e))
-                field_dict = {}
-            else:
-                field_dict = remote_field.as_dict()
-
-            if name in self.readonly_fields:
-                field_dict['readonly'] = True
-
-            form_dict['fields'][name] = field_dict
-
-            # Load the initial data, which is a conglomerate of form initial and field initial
-            if 'initial' not in form_dict['fields'][name]:
-                form_dict['fields'][name]['initial'] = None
-
-            initial_data[name] = form_dict['fields'][name]['initial']
-
-        if self.form.data:
-            form_dict['data'] = self.form.data
-        else:
-            form_dict['data'] = initial_data
-
-        #resolved = resolve_promise(form_dict)
-        '''

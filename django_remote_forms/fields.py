@@ -212,11 +212,24 @@ class RemoteChoiceField(RemoteField):
         #return field_dict
         return {}
 
+class RemoteTypedChoiceField(RemoteChoiceField):
+    def as_dict(self):
+        field_dict = super(RemoteTypedChoiceField, self).as_dict()
 
-class RemoteToolChoiceField(RemoteField):
+        field_dict.update({
+            'coerce': self.field.coerce,
+            'empty_value': self.field.empty_value
+        })
+
+        return field_dict
+
+class RemoteToolChoiceField(RemoteTypedChoiceField):
     def get_dict(self):
         field_dict = {'choices': self.field.choices,
-                      'ng-options': self.field.widget.attrs['ng-options']}
+                      'ng-options': self.field.widget.attrs['ng-options'],
+                      }
+        #print dir(self.field.widget)
+        #print self.field.to_python()
         '''
         for key, value in self.field.choices:
             field_dict['choices'].append({
@@ -230,19 +243,6 @@ class RemoteToolChoiceField(RemoteField):
 class RemoteModelChoiceField(RemoteChoiceField):
     def as_dict(self):
         return super(RemoteModelChoiceField, self).as_dict()
-
-
-class RemoteTypedChoiceField(RemoteChoiceField):
-    def as_dict(self):
-        field_dict = super(RemoteTypedChoiceField, self).as_dict()
-
-        field_dict.update({
-            'coerce': self.field.coerce,
-            'empty_value': self.field.empty_value
-        })
-
-        return field_dict
-
 
 class RemoteMultipleChoiceField(RemoteChoiceField):
     def as_dict(self):
