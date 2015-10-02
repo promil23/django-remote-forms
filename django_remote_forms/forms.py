@@ -116,11 +116,13 @@ class RemoteForm(object):
         form_dict['inlines'] = SortedDict()
 
 
-        self.collect_fields(self.form, form_dict)
+        self.collect_fields(self.form, form_dict, True)
+        self.collect_fields(self.form, form_dict, False)
 
         #import json
         #print json.dumps(form_dict, indent=4)
         #return mark_safe(json.dumps(form_dict, indent=4))
+
         #empty form doesn't have formsets_to_refresh
         if hasattr(self.form, 'formsets_to_refresh'):
             mgmt = self.form.formsets_to_refresh()
@@ -131,7 +133,7 @@ class RemoteForm(object):
 
         #return form_dict
 
-    def collect_fields(self, form, form_dict):
+    def collect_fields(self, form, form_dict, is_empty):
         initial_data = {}
 
         inlines = getattr(form, 'inlines', None)
@@ -139,20 +141,19 @@ class RemoteForm(object):
 
         if inlines or nested:
             inl_nes = 'inlines' if inlines else 'nested'
-            form_dict[inl_nes] = {}
+            form_dict.setdefault(inl_nes, {})
             for fs_name, fs in getattr(form, inl_nes).items():
-                form_dict[inl_nes][fs_name + '-empty'] = \
-                                        RemoteForm(fs.empty_form).as_dict()
-
-                for i, f in enumerate(fs.forms):
-                    #form_dict[inl_nes].setdefault(fs_name, []).append({})
-                    form_dict[inl_nes].setdefault(fs_name, 
-                                        {'items':[]})
-                    
-                    form_dict[inl_nes][fs_name]['items'].append({})
-                    self.collect_fields(f, \
-                                 form_dict[inl_nes][fs_name]['items'][i])
-
+                if is_empty:
+                    form_dict[inl_nes].setdefault(fs_name + '-empty', \
+                                            RemoteForm(fs.empty_form).as_dict())
+                    self.collect_fields(fs.empty_form, \
+                         form_dict[inl_nes][fs_name + '-empty'], is_empty)
+                else:
+                    form_dict[inl_nes].setdefault(fs_name, {'items':[]})
+                    for i, f in enumerate(fs.forms):
+                        form_dict[inl_nes][fs_name]['items'].append({})
+                        self.collect_fields(f, \
+                             form_dict[inl_nes][fs_name]['items'][i], is_empty)
 
         for name, value in [(x, form[x].value()) for x in form.fields]:
 
