@@ -170,7 +170,7 @@ class RemoteForm(object):
                     field_dict = remote_field.get_dict()
 
                 form_dict[name] = {
-                    'value': value
+                    'value': value if value is not None else '' 
                 }
                 form_dict[name].update(field_dict)
             except Exception, e:

@@ -179,6 +179,8 @@ class RemoteBCTChoiceFieldWithTitles(RemoteField):
         #field_dict = {'widget': {'attrs' : self.field.widget.attrs}}
         #field_dict = {'results': self.field.widget.attrs['results']}
         field_dict = {'results': self.field.results}
+        if hasattr(self.field, 'img_url'):
+            field_dict['img_url'] = self.field.img_url
         return field_dict
 
 class RemoteInlineForeignKeyField(RemoteField):
