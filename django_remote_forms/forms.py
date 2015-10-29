@@ -1,3 +1,4 @@
+import json
 from django.utils.datastructures import SortedDict
 
 from django_remote_forms import fields, logger
@@ -119,7 +120,6 @@ class RemoteForm(object):
         self.collect_fields(self.form, form_dict, True)
         self.collect_fields(self.form, form_dict, False)
 
-        #import json
         #print json.dumps(form_dict, indent=4)
         #return mark_safe(json.dumps(form_dict, indent=4))
 
@@ -127,11 +127,8 @@ class RemoteForm(object):
         if hasattr(self.form, 'formsets_to_refresh'):
             mgmt = self.form.formsets_to_refresh()
             bct_utils.merge_dicts(form_dict['inlines'], mgmt)
-            return form_dict
-        else:
-            return form_dict
 
-        #return form_dict
+        return form_dict
 
     def collect_fields(self, form, form_dict, is_empty):
         initial_data = {}
@@ -156,7 +153,6 @@ class RemoteForm(object):
                              form_dict[inl_nes][fs_name]['items'][i], is_empty)
 
         for name, value in [(x, form[x].value()) for x in form.fields]:
-
             form_initial_field_data = form.initial.get(name)
             field = form.fields[name]
             remote_field_class_name = 'Remote%s' % field.__class__.__name__
@@ -172,6 +168,10 @@ class RemoteForm(object):
                 form_dict[name] = {
                     'value': value if value is not None else '' 
                 }
+
+                #let angular know that we don't want to submit this field
+                if getattr(field, 'angular_no_save', False): 
+                    form_dict[name]['no-save'] = True
                 form_dict[name].update(field_dict)
             except Exception, e:
                 #logger.warning('Error serializing field %s: %s', remote_field_class_name, str(e))
