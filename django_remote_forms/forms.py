@@ -144,8 +144,12 @@ class RemoteForm(object):
         return form_dict
 
     def collect_mgmt(self, fs_name, fs, mgmt, i = None, f = None):
+        #empty form doesn't have management form,
+        #form to be deleted doesn't have management form
         if fs_name == 'empty' or (hasattr(f, 'instance') and not f.instance.id):
             return
+
+        '''
         if fs_name == 'PATTERNS':
 
             mgmt[fs_name].setdefault('mgmt', [])
@@ -153,11 +157,12 @@ class RemoteForm(object):
                                      fs.management_form['INITIAL_FORMS'].value()
             )
         else:
-            mgmt.setdefault(fs_name, {
-                    'mgmt': [],
-                    'INITIAL_FORMS': fs.management_form['INITIAL_FORMS'].value()
+        '''
+        mgmt.setdefault(fs_name, {
+                'mgmt': [],
+                'INITIAL_FORMS': fs.management_form['INITIAL_FORMS'].value()
 
-            })
+        })
         #just create children INITIAL_FORMS
         if i is None:
             return
@@ -185,15 +190,19 @@ class RemoteForm(object):
                     self.collect_fields(fs.empty_form, \
                          form_dict[inl_nes][fs_name + '-empty'], 'empty', is_empty)
                 else:
-                    form_dict[inl_nes].setdefault(fs_name, {'items':[]})
-                    #print fs.total_form_count()
-                    #print fs_name
-                    #print len(fs.forms)
-
                     #if PATTERN does not have any YARNS and TOOLS
                     #we have to set default INITIAL_FORMS values for 
                     #these children
                     self.collect_mgmt(fs_name, fs, mgmt)
+
+                    #second level eg. YARNS, TOOLS
+                    form_dict[inl_nes].setdefault(fs_name, {'items': []})
+                    #first level eg. PATTERNS
+                    form_dict[inl_nes][fs_name].setdefault('items', [])
+                    #print fs.total_form_count()
+                    #print fs_name
+                    #print len(fs.forms)
+
                     for i, f in enumerate(fs.forms):
                         self.collect_mgmt(fs_name, fs, mgmt, i, f)
                         mgmt[fs_name]['mgmt'][i]['children'] = {}
