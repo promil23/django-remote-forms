@@ -140,11 +140,11 @@ class RemoteForm(object):
         #    mgmt = self.form.formsets_to_refresh()
         #    bct_utils.merge_dicts(form_dict['inlines'], mgmt)
 
-        print json.dumps(form_dict, indent = 2)
+        #print json.dumps(form_dict, indent = 2)
         return form_dict
 
-    def collect_mgmt(self, fs_name, fs, mgmt, i, f):
-        if fs_name == 'empty' or not f.instance.id:
+    def collect_mgmt(self, fs_name, fs, mgmt, i = None, f = None):
+        if fs_name == 'empty' or (hasattr(f, 'instance') and not f.instance.id):
             return
         if fs_name == 'PATTERNS':
 
@@ -158,6 +158,9 @@ class RemoteForm(object):
                     'INITIAL_FORMS': fs.management_form['INITIAL_FORMS'].value()
 
             })
+        #just create children INITIAL_FORMS
+        if i is None:
+            return
         #print mgmt
 
         #if not f.instance.id:
@@ -186,6 +189,11 @@ class RemoteForm(object):
                     #print fs.total_form_count()
                     #print fs_name
                     #print len(fs.forms)
+
+                    #if PATTERN does not have any YARNS and TOOLS
+                    #we have to set default INITIAL_FORMS values for 
+                    #these children
+                    self.collect_mgmt(fs_name, fs, mgmt)
                     for i, f in enumerate(fs.forms):
                         self.collect_mgmt(fs_name, fs, mgmt, i, f)
                         mgmt[fs_name]['mgmt'][i]['children'] = {}
