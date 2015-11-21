@@ -18,6 +18,7 @@ class RemoteForm(object):
         self.ordered_fields = kwargs.pop('ordering', [])
 
         self.fieldsets = kwargs.pop('fieldsets', {})
+        self.no_refresh = kwargs.pop('no_refresh', False)
 
         # Make sure all passed field lists are valid
         if self.excluded_fields and not (self.all_fields >= self.excluded_fields):
@@ -117,20 +118,55 @@ class RemoteForm(object):
         form_dict['inlines'] = SortedDict()
 
 
-        self.collect_fields(self.form, form_dict, True)
-        self.collect_fields(self.form, form_dict, False)
+        mgmt = {
+        }
+        '''
+            'PATTERNS': {
+                'mgmt': [],
+                'INITIAL_FORMS': self.inlines['PATTERNS'].management_form['INITIAL_FORMS'].value()
+            }
+        '''
+
+        #self.collect_fields(self.form, form_dict, mgmt, True)
+        #self.collect_fields(self.form, form_dict, mgmt, False)
+        self.collect_fields(self.form, form_dict, form_dict['inlines'], True)
+        self.collect_fields(self.form, form_dict, form_dict['inlines'], False)
 
         #print json.dumps(form_dict, indent=4)
         #return mark_safe(json.dumps(form_dict, indent=4))
 
         #empty form doesn't have formsets_to_refresh
-        if hasattr(self.form, 'formsets_to_refresh'):
-            mgmt = self.form.formsets_to_refresh()
-            bct_utils.merge_dicts(form_dict['inlines'], mgmt)
+        #if hasattr(self.form, 'formsets_to_refresh'):
+        #    mgmt = self.form.formsets_to_refresh()
+        #    bct_utils.merge_dicts(form_dict['inlines'], mgmt)
 
+        print json.dumps(form_dict, indent = 2)
         return form_dict
 
-    def collect_fields(self, form, form_dict, is_empty):
+    def collect_mgmt(self, fs_name, fs, mgmt, i, f):
+        if fs_name == 'empty' or not f.instance.id:
+            return
+        if fs_name == 'PATTERNS':
+
+            mgmt[fs_name].setdefault('mgmt', [])
+            mgmt[fs_name].setdefault('INITIAL_FORMS', 
+                                     fs.management_form['INITIAL_FORMS'].value()
+            )
+        else:
+            mgmt.setdefault(fs_name, {
+                    'mgmt': [],
+                    'INITIAL_FORMS': fs.management_form['INITIAL_FORMS'].value()
+
+            })
+        #print mgmt
+
+        #if not f.instance.id:
+        #    return
+
+        d = {'id': f.instance.id, 'DELETE': '', 'children': {}}
+        mgmt[fs_name]['mgmt'].append(d)
+
+    def collect_fields(self, form, form_dict, mgmt, is_empty):
         initial_data = {}
 
         inlines = getattr(form, 'inlines', None)
@@ -144,36 +180,47 @@ class RemoteForm(object):
                     form_dict[inl_nes].setdefault(fs_name + '-empty', \
                                             RemoteForm(fs.empty_form).as_dict())
                     self.collect_fields(fs.empty_form, \
-                         form_dict[inl_nes][fs_name + '-empty'], is_empty)
+                         form_dict[inl_nes][fs_name + '-empty'], 'empty', is_empty)
                 else:
                     form_dict[inl_nes].setdefault(fs_name, {'items':[]})
+                    #print fs.total_form_count()
+                    #print fs_name
+                    #print len(fs.forms)
                     for i, f in enumerate(fs.forms):
+                        self.collect_mgmt(fs_name, fs, mgmt, i, f)
+                        mgmt[fs_name]['mgmt'][i]['children'] = {}
+
                         form_dict[inl_nes][fs_name]['items'].append({})
                         self.collect_fields(f, \
-                             form_dict[inl_nes][fs_name]['items'][i], is_empty)
+                             form_dict[inl_nes][fs_name]['items'][i], 
+                             mgmt[fs_name]['mgmt'][i]['children'], is_empty)
+                        #self.collect_fields(f, \
+                        #     form_dict[inl_nes][fs_name]['items'][i], 
+                        #     {}, is_empty)
 
         for name, value in [(x, form[x].value()) for x in form.fields]:
             form_initial_field_data = form.initial.get(name)
             field = form.fields[name]
             remote_field_class_name = 'Remote%s' % field.__class__.__name__
+            #if remote_field_class_name.find('ChoiceField') > -1:
+            #    print 'eee   ' + name
 
             field_dict = {}
-            try:
-                remote_field_class = getattr(fields, remote_field_class_name)
-                remote_field = remote_field_class(field, form_initial_field_data, field_name=name)
-                if hasattr(remote_field, 'get_dict'):
-                    #field_dict = remote_field.as_dict()
-                    field_dict = remote_field.get_dict()
+            #try:
+            remote_field_class = getattr(fields, remote_field_class_name)
+            remote_field = remote_field_class(field, form_initial_field_data, field_name=name)
+            if hasattr(remote_field, 'get_dict'):
+                #field_dict = remote_field.as_dict()
+                field_dict = remote_field.get_dict()
 
-                form_dict[name] = {
-                    'value': value if value is not None else '' 
-                }
+            form_dict[name] = {
+                'value': value if value is not None else '' 
+            }
 
-                #let angular know that we don't want to submit this field
-                if getattr(field, 'angular_no_save', False): 
-                    form_dict[name]['no-save'] = True
-                form_dict[name].update(field_dict)
-            except Exception, e:
-                #logger.warning('Error serializing field %s: %s', remote_field_class_name, str(e))
-                print 'Error serializing field {0}: {1}'.format(remote_field_class_name, str(e))
+            #let angular know that we don't want to submit this field
+            if getattr(field, 'angular_no_save', False): 
+                form_dict[name]['no-save'] = True
+            form_dict[name].update(field_dict)
+            #except Exception, e:
+            #    print 'Error serializing field {0}: {1}'.format(remote_field_class_name, str(e))
 
