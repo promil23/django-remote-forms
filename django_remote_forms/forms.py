@@ -18,7 +18,7 @@ class RemoteForm(object):
         self.ordered_fields = kwargs.pop('ordering', [])
 
         self.fieldsets = kwargs.pop('fieldsets', {})
-        self.no_refresh = kwargs.pop('no_refresh', False)
+        self.refresh_only = kwargs.pop('refresh_only', False)
 
         # Make sure all passed field lists are valid
         if self.excluded_fields and not (self.all_fields >= self.excluded_fields):
@@ -114,33 +114,15 @@ class RemoteForm(object):
             # If there are no fieldsets, specify order
             form_dict['ordered_fields'] = self.fields
 
-        form_dict['fields'] = SortedDict()
         form_dict['inlines'] = SortedDict()
 
+        mgmt = {}
 
-        mgmt = {
-        }
-        '''
-            'PATTERNS': {
-                'mgmt': [],
-                'INITIAL_FORMS': self.inlines['PATTERNS'].management_form['INITIAL_FORMS'].value()
-            }
-        '''
-
-        #self.collect_fields(self.form, form_dict, mgmt, True)
-        #self.collect_fields(self.form, form_dict, mgmt, False)
-        self.collect_fields(self.form, form_dict, form_dict['inlines'], True)
+        if not self.refresh_only:
+            form_dict['fields'] = SortedDict()
+            self.collect_fields(self.form, form_dict, form_dict['inlines'], True)
         self.collect_fields(self.form, form_dict, form_dict['inlines'], False)
 
-        #print json.dumps(form_dict, indent=4)
-        #return mark_safe(json.dumps(form_dict, indent=4))
-
-        #empty form doesn't have formsets_to_refresh
-        #if hasattr(self.form, 'formsets_to_refresh'):
-        #    mgmt = self.form.formsets_to_refresh()
-        #    bct_utils.merge_dicts(form_dict['inlines'], mgmt)
-
-        #print json.dumps(form_dict, indent = 2)
         return form_dict
 
     def collect_mgmt(self, fs_name, fs, mgmt, i = None, f = None):
@@ -149,29 +131,16 @@ class RemoteForm(object):
         if fs_name == 'empty' or (hasattr(f, 'instance') and not f.instance.id):
             return
 
-        '''
-        if fs_name == 'PATTERNS':
-
-            mgmt[fs_name].setdefault('mgmt', [])
-            mgmt[fs_name].setdefault('INITIAL_FORMS', 
-                                     fs.management_form['INITIAL_FORMS'].value()
-            )
-        else:
-        '''
         mgmt.setdefault(fs_name, {
                 'mgmt': [],
-                'INITIAL_FORMS': fs.management_form['INITIAL_FORMS'].value()
+                'INITIAL_FORMS': int(fs.management_form['INITIAL_FORMS'].value())
 
         })
         #just create children INITIAL_FORMS
         if i is None:
             return
-        #print mgmt
 
-        #if not f.instance.id:
-        #    return
-
-        d = {'id': f.instance.id, 'DELETE': '', 'children': {}}
+        d = {'id': f.instance.id, 'DELETE': ''}
         mgmt[fs_name]['mgmt'].append(d)
 
     def collect_fields(self, form, form_dict, mgmt, is_empty):
@@ -182,7 +151,12 @@ class RemoteForm(object):
 
         if inlines or nested:
             inl_nes = 'inlines' if inlines else 'nested'
-            form_dict.setdefault(inl_nes, {})
+            if inl_nes == 'nested' and not mgmt == 'empty':
+                mgmt['children'] = {}
+                mgmt = mgmt['children']
+
+            if not self.refresh_only:
+                form_dict.setdefault(inl_nes, {})
             for fs_name, fs in getattr(form, inl_nes).items():
                 if is_empty:
                     form_dict[inl_nes].setdefault(fs_name + '-empty', \
@@ -195,32 +169,32 @@ class RemoteForm(object):
                     #these children
                     self.collect_mgmt(fs_name, fs, mgmt)
 
-                    #second level eg. YARNS, TOOLS
-                    form_dict[inl_nes].setdefault(fs_name, {'items': []})
-                    #first level eg. PATTERNS
-                    form_dict[inl_nes][fs_name].setdefault('items', [])
-                    #print fs.total_form_count()
-                    #print fs_name
-                    #print len(fs.forms)
+                    if not self.refresh_only:
+                        #second level eg. YARNS, TOOLS
+                        form_dict[inl_nes].setdefault(fs_name, {})
+                        #first level eg. PATTERNS
+                        form_dict[inl_nes][fs_name].setdefault('items', [])
 
                     for i, f in enumerate(fs.forms):
                         self.collect_mgmt(fs_name, fs, mgmt, i, f)
-                        mgmt[fs_name]['mgmt'][i]['children'] = {}
 
-                        form_dict[inl_nes][fs_name]['items'].append({})
-                        self.collect_fields(f, \
-                             form_dict[inl_nes][fs_name]['items'][i], 
-                             mgmt[fs_name]['mgmt'][i]['children'], is_empty)
-                        #self.collect_fields(f, \
-                        #     form_dict[inl_nes][fs_name]['items'][i], 
-                        #     {}, is_empty)
+                        if not self.refresh_only:
+                            form_dict[inl_nes][fs_name]['items'].append({})
+                            self.collect_fields(f, \
+                                 form_dict[inl_nes][fs_name]['items'][i], 
+                                 mgmt[fs_name]['mgmt'][i], is_empty)
+                        else:
+                            self.collect_fields(f, \
+                                 {}, 
+                                 mgmt[fs_name]['mgmt'][i], is_empty)
+
+        if self.refresh_only:
+            return
 
         for name, value in [(x, form[x].value()) for x in form.fields]:
             form_initial_field_data = form.initial.get(name)
             field = form.fields[name]
             remote_field_class_name = 'Remote%s' % field.__class__.__name__
-            #if remote_field_class_name.find('ChoiceField') > -1:
-            #    print 'eee   ' + name
 
             field_dict = {}
             #try:
