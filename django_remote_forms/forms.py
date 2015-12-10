@@ -1,6 +1,5 @@
 import json
-from django.utils.datastructures import SortedDict
-
+from collections import OrderedDict
 from django_remote_forms import fields, logger
 from django_remote_forms.utils import resolve_promise
 from django.utils.safestring import mark_safe
@@ -102,7 +101,7 @@ class RemoteForm(object):
             }
         }
         """
-        form_dict = SortedDict()
+        form_dict = OrderedDict()
         if getattr(self, 'is_empty_form', False):
             form_dict['title'] = self.form.__class__.__name__
             form_dict['non_field_errors'] = self.form.non_field_errors()
@@ -114,12 +113,12 @@ class RemoteForm(object):
             # If there are no fieldsets, specify order
             form_dict['ordered_fields'] = self.fields
 
-        form_dict['inlines'] = SortedDict()
+        form_dict['inlines'] = OrderedDict()
 
         mgmt = {}
 
         if not self.refresh_only:
-            form_dict['fields'] = SortedDict()
+            form_dict['fields'] = OrderedDict()
             self.collect_fields(self.form, form_dict, form_dict['inlines'], True)
         self.collect_fields(self.form, form_dict, form_dict['inlines'], False)
 
