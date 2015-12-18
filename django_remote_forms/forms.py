@@ -210,6 +210,9 @@ class RemoteForm(object):
             #let angular know that we don't want to submit this field
             if getattr(field, 'angular_no_save', False): 
                 form_dict[name]['no-save'] = True
+
+            if getattr(form, 'is_readonly', False): 
+                form_dict[name]['disabled'] = True
             form_dict[name].update(field_dict)
             #except Exception, e:
             #    print 'Error serializing field {0}: {1}'.format(remote_field_class_name, str(e))
